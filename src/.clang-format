@@ -1,0 +1,17 @@
+Language: Cpp
+BasedOnStyle: GNU
+# SortIncludes:    false
+AllowShortIfStatementsOnASingleLine: false
+BreakBeforeBraces: Linux
+TabWidth:        4
+IndentWidth:     4
+ColumnLimit:     89
+SpaceBeforeParens:
+    ControlStatements
+SpacesInCStyleCastParentheses: false
+SpaceAfterCStyleCast: true
+IndentCaseLabels: true
+AlignAfterOpenBracket: DontAlign
+BinPackArguments: true
+BinPackParameters: true
+AlwaysBreakAfterReturnType: AllDefinitions
