@@ -158,21 +158,29 @@ class Args
     Args(int argc, char *argv[])
     {
         string u;
-        u = "Usage : \n"
-            "tsk_trueibd 1 1000000 10000 2.0 xxx.trees \n"
+        // clang-format off
+        u = "Usage: tskibd <chromN> <bp_per_cm> <sampling_window> <mincm> <treeseq_file>\n"
             "\n"
-            "Positional parameters: \n"
-            "1. chromN:                   Chromosome number (int). Use for \n"
-            "                               name output file like 1.vcf, 1.ibd\n"
-            "                               1.map file. It is also used as    \n"
-            "                               chromosome contig name in vcf file\n"
-            "2. bp_per_cm:                1000000 for human; 15000 for p.f.\n"
-            "3. sampling_window:          1: check all trees; 1000: will check \n"
-            "                               trees covers 0, 1000, 2000 \n"
-            " 	                            suggestions: human->10000, pf->150; \n"
-            "4. mincm:                    min length of ibd segment to keep\n\n"
-            "5. treeseq_file:             tree sequence file that has finished \n"
-            "                               coalescent\n\n";
+            "Positional parameters:\n"
+            "\n"
+            "    <chr_no>          Chromosome number (integer). This parameter is used for\n"
+            "                      naming the output files, such as 1.ibd and 1.map.\n"
+            "\n"
+            "    <bp_per_cm>       Base pairs per centimorgan. For example, use 1000000 for\n"
+            "                      human or 15000 for p.f. (P. falciparum).\n"
+            "\n"
+            "    <sampling_window> Sampling window size in base pairs. Use '1' to check all\n"
+            "                      trees or '1000' to check trees covering positions of 0,\n"
+            "                      1000, 2000 bp, and so on. We recommend a window size\n"
+            "                      equivalent to 0.01 centimorgan. For instance, for human\n"
+            "                      use 10000 bp, and for p.f. use 150.\n"
+            "\n"
+            "    <mincm>           Minimum length in centimorgan of IBD (Identity by Descent)\n"
+            "                      segment to keep. IBD segments shorter than this value\n"
+            "                      will be ignored and not written to the output file.\n"
+            "\n"
+            "    <treeseq_file>    Tree sequence file that has finished coalescent.\n\n";
+        // clang-format on
 
         if (argc != 6) {
             cerr << u;
