@@ -3,6 +3,14 @@
 `tskibd` is a tool designed to calculate Identity by Descent (IBD) segments from genealogical trees represented in the [tree sequence](https://tskit.dev/tutorials/what_is.html#sec-what-is) format. 
 It leverages the tskit C API library, which you can find at [tskit](https://github.com/tskit-dev/tskit) repository.
 
+
+## System requirements
+
+This software has been tested on MacOS and Linux operating systems. The
+dependencies (including version numbers) for compilation and execution are
+defined in the env.yml Conda recipe. Installation time is typically within a
+minute.
+
 ## Conda environment for compilation
 
 If you don't have `Conda` installed on your system, you can easily install it from [here](https://docs.conda.io/en/latest/miniconda.html).
@@ -28,6 +36,8 @@ meson build
 ninja -C build tskibd
 ```
 The compiled executable can be found at `build/tskibd`.
+
+
 
 ## Usage
 
@@ -55,7 +65,7 @@ Positional parameters:
     <treeseq_file>    Tree sequence file that has finished coalescent.
 ```
 
-Example: 
+Example running on the **test data**: 
 ```
 build/tskibd 1 15000 150 2  example_data/chr1.trees
 ```
