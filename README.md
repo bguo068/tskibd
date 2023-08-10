@@ -28,7 +28,7 @@ The `meson/ninja` build system is used to compile `tskibd`.
 Please refer to the previous section to prepare the compilation envrionment.
 
 ```sh
-git clone git@github.com:gbinux/tskibd.git
+git clone https://github.com/bguo068/tskibd.git
 cd tskibd
 git submodule update --init --recursive # IMPORTANT!
 mv tskit/c/VERSION tskit/c/VERSION.txt # Fix filename issue
