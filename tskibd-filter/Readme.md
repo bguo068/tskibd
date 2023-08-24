@@ -23,10 +23,12 @@ The IBDNe paper outlines a method for addressing this issue:
 ## Features
 
 This program implements the IBD-filtering process described above. It takes both
-inferred IBD and true IBD data from the **same** simulation as input. It is assumed that
-the input IBD data follows the `tskibd` file format, and the TMRCA for true
-IBD is assumed to be reliable. The output IBD file is the filterred version of the
-inferred IBD. 
+inferred IBD and true IBD data from the **same** simulation as input. It is
+assumed that the input IBD data follows the `tskibd` file format, and the TMRCA
+for true IBD is assumed to be reliable. The output IBD file is the filterred
+version of the inferred IBD. An additional file ended with `.overlap` is the
+detail of the overlaps, with the left 7 columns are from the inferred set and
+the right 7 columns from true set.
 
 ## Compililation
 

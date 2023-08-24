@@ -34,6 +34,58 @@ struct IbdSeg {
     #[serde(rename = "HasMutation")]
     hasmut: u8,
 }
+#[derive(Debug, PartialEq, PartialOrd, Deserialize, Serialize, Clone, Copy)]
+struct IbdSegOverlap {
+    #[serde(rename = "Id1")]
+    id1: u32,
+    #[serde(rename = "Id2")]
+    id2: u32,
+    #[serde(rename = "Start")]
+    start: u32,
+    #[serde(rename = "End")]
+    end: u32,
+    #[serde(rename = "Ancestor")]
+    anc: u32,
+    #[serde(rename = "Tmrca")]
+    tmrca: f32,
+    #[serde(rename = "HasMutation")]
+    hasmut: u8,
+    #[serde(rename = "Id1T")]
+    id1_t: u32,
+    #[serde(rename = "Id2T")]
+    id2_t: u32,
+    #[serde(rename = "StartT")]
+    start_t: u32,
+    #[serde(rename = "EndT")]
+    end_t: u32,
+    #[serde(rename = "AncestorT")]
+    anc_t: u32,
+    #[serde(rename = "TmrcaT")]
+    tmrca_t: f32,
+    #[serde(rename = "HasMutationT")]
+    hasmut_t: u8,
+}
+
+impl IbdSegOverlap {
+    fn from_overlapped(inf_seg: &IbdSeg, true_seg: &IbdSeg) -> Self {
+        Self {
+            id1: inf_seg.id1,
+            id2: inf_seg.id2,
+            start: inf_seg.start,
+            end: inf_seg.end,
+            anc: inf_seg.anc,
+            tmrca: inf_seg.tmrca,
+            hasmut: inf_seg.hasmut,
+            id1_t: true_seg.id1,
+            id2_t: true_seg.id2,
+            start_t: true_seg.start,
+            end_t: true_seg.end,
+            anc_t: true_seg.anc,
+            tmrca_t: true_seg.tmrca,
+            hasmut_t: true_seg.hasmut,
+        }
+    }
+}
 
 #[derive(PartialEq, Debug)]
 struct IbdSet(Vec<IbdSeg>);
@@ -79,7 +131,7 @@ impl IbdSet {
     fn filt_by_tmrca(&mut self) {
         self.0.retain(|s| s.tmrca < 1.5);
     }
-    fn filt_by_overlapping(&mut self, other: &Self) {
+    fn filt_by_overlapping(&mut self, other: &Self) -> IbdSetOverlap {
         // ensure normalized and others is filt by tmrca
         assert!(self.0.iter().all(|a| a.id1 > a.id2));
         assert!(other.0.iter().all(|a| (a.id1 > a.id2) && (a.tmrca < 1.5)));
@@ -101,17 +153,22 @@ impl IbdSet {
             .linear_group_by_key_mut(|s| (s.id1, s.id2, s.start, s.end));
         let it2 = other.0[..].linear_group_by_key(|s| (s.id1, s.id2, s.start, s.end));
 
+        let mut v_ov = vec![];
         let mut tree = IntervalTree::new(100);
         it1.merge_join_by(it2, |a, b| (a[0].id1, a[0].id2).cmp(&(b[0].id1, b[0].id2)))
             .for_each(|res| match res {
                 Left(_) => {}
                 Right(_) => {}
                 Both(a, b) => {
-                    tree.clear_and_fill_with_iter(b.iter().map(|x| (x.start..x.end, ())));
+                    tree.clear_and_fill_with_iter(b.iter().map(|x| (x.start..x.end, x)));
                     for seg in a {
                         // if overlap, mark this segs with (id1=0, id2=0) which will be clear out
                         // later
-                        if let Some(_) = tree.query(seg.start..seg.end).next() {
+                        if let Some(e) = tree.query(seg.start..seg.end).next() {
+                            // store to overlapped to seg_ov
+                            let seg_ov = IbdSegOverlap::from_overlapped(seg, e.value);
+                            v_ov.push(seg_ov);
+                            // make for removal
                             seg.id1 = 0;
                             seg.id2 = 0;
                         }
@@ -120,6 +177,23 @@ impl IbdSet {
             });
 
         self.0.retain(|seg| (seg.id1 != 0) && (seg.id2 != 0));
+        IbdSetOverlap(v_ov)
+    }
+}
+
+#[derive(PartialEq, Debug)]
+struct IbdSetOverlap(Vec<IbdSegOverlap>);
+
+impl IbdSetOverlap {
+    fn to_tskibd_file(&self, p: &str) {
+        let mut wrt = csv::WriterBuilder::new()
+            .delimiter(b'\t')
+            .has_headers(true)
+            .from_path(p)
+            .expect(&format!("Cannot write to file {}", p));
+        for ibdseg_ov in self.0.iter() {
+            wrt.serialize(ibdseg_ov).unwrap();
+        }
     }
 }
 
@@ -147,8 +221,10 @@ fn main() {
     true_set.filt_by_tmrca();
     infer_set.normalize();
     infer_set.sort();
-    infer_set.filt_by_overlapping(&true_set);
+    let overlap_set = infer_set.filt_by_overlapping(&true_set);
     infer_set.to_tskibd_file(cli.out.to_str().unwrap());
+    let overlap_out = format!("{}.overlap", cli.out.to_str().unwrap());
+    overlap_set.to_tskibd_file(&overlap_out);
 }
 
 #[cfg(test)]
@@ -171,6 +247,63 @@ mod tests {
         IbdSet(set)
     }
 
+    fn make_ibdset_overlap(
+        v: Vec<(
+            u32,
+            u32,
+            u32,
+            u32,
+            u32,
+            f32,
+            u8,
+            u32,
+            u32,
+            u32,
+            u32,
+            u32,
+            f32,
+            u8,
+        )>,
+    ) -> IbdSetOverlap {
+        let mut set = vec![];
+        for (
+            id1,
+            id2,
+            start,
+            end,
+            anc,
+            tmrca,
+            hasmut,
+            id1_t,
+            id2_t,
+            start_t,
+            end_t,
+            anc_t,
+            tmrca_t,
+            hasmut_t,
+        ) in v
+        {
+            let seg = IbdSegOverlap {
+                id1,
+                id2,
+                start,
+                end,
+                anc,
+                tmrca,
+                hasmut,
+                id1_t,
+                id2_t,
+                start_t,
+                end_t,
+                anc_t,
+                tmrca_t,
+                hasmut_t,
+            };
+            set.push(seg);
+        }
+        IbdSetOverlap(set)
+    }
+
     #[test]
     fn test1() {
         let mut true_set = make_ibdset(vec![
@@ -191,13 +324,18 @@ mod tests {
             (2, 1, 1000, 1100, 20, 100.0, 0),
             (99, 10, 2000, 2200, 20, 100.0, 0),
         ]);
+        let exp_out_over = make_ibdset_overlap(vec![
+            (1, 0, 90, 200, 20, 100.0, 0, 1, 0, 10, 100, 20, 1.0, 0),
+            (99, 10, 20, 200, 20, 100.0, 0, 99, 10, 20, 200, 20, 1.0, 0),
+        ]);
         true_set.normalize();
         true_set.sort();
         true_set.filt_by_tmrca();
         infer_set.normalize();
         infer_set.sort();
-        infer_set.filt_by_overlapping(&true_set);
+        let out_ov = infer_set.filt_by_overlapping(&true_set);
 
         assert_eq!(infer_set, exp_out);
+        assert_eq!(out_ov, exp_out_over);
     }
 }
