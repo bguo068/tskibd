@@ -34,6 +34,39 @@ struct IbdSeg {
     #[serde(rename = "HasMutation")]
     hasmut: u8,
 }
+
+/// Allow converting float positions to integer positions
+#[derive(Debug, PartialEq, PartialOrd, Deserialize, Serialize, Clone, Copy)]
+struct IbdSegTolerateFloat {
+    #[serde(rename = "Id1")]
+    id1: u32,
+    #[serde(rename = "Id2")]
+    id2: u32,
+    #[serde(rename = "Start")]
+    start: f32,
+    #[serde(rename = "End")]
+    end: f32,
+    #[serde(rename = "Ancestor")]
+    anc: u32,
+    #[serde(rename = "Tmrca")]
+    tmrca: f32,
+    #[serde(rename = "HasMutation")]
+    hasmut: u8,
+}
+impl From<IbdSegTolerateFloat> for IbdSeg {
+    fn from(value: IbdSegTolerateFloat) -> Self {
+        Self {
+            id1: value.id1,
+            id2: value.id2,
+            start: value.start.floor() as u32,
+            end: value.end.floor() as u32,
+            anc: value.anc,
+            tmrca: value.tmrca,
+            hasmut: value.hasmut,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, PartialOrd, Deserialize, Serialize, Clone, Copy)]
 struct IbdSegOverlap {
     #[serde(rename = "Id1")]
@@ -102,7 +135,8 @@ impl IbdSet {
 
         let mut v = vec![];
         while rdr.read_byte_record(&mut record).unwrap() {
-            let ibdseg: IbdSeg = record.deserialize(None).unwrap();
+            let ibdseg_fl: IbdSegTolerateFloat = record.deserialize(None).unwrap();
+            let ibdseg: IbdSeg = ibdseg_fl.into();
             v.push(ibdseg);
         }
         Self(v)
