@@ -1,19 +1,18 @@
 #include <algorithm>
-#include <tskit.h>
-#include <iostream>
-#include <vector>
-#include <cassert>
-#include <err.h>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
+#include <err.h>
 #include <fstream>
 #include <iostream>
 #include <iterator>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <tskit.h>
 #include <tuple>
+#include <vector>
+#include <filesystem>
 
 using namespace std;
 
@@ -147,6 +146,7 @@ class Args
     double mincm;
     // inferred data
     string treeseq_fn;
+    string out_prefix;
     int nsam;
     long nsegsites;
     int tree_sample_nodes_label_start_num; // macs starts with 0; msms starts
@@ -159,7 +159,7 @@ class Args
     {
         string u;
         // clang-format off
-        u = "Usage: tskibd <chromN> <bp_per_cm> <sampling_window> <mincm> <treeseq_file>\n"
+        u = "Usage: tskibd <chromN> <bp_per_cm> <sampling_window> <mincm> <treeseq_file> [<out>]\n"
             "\n"
             "Positional parameters:\n"
             "\n"
@@ -179,10 +179,15 @@ class Args
             "                      segment to keep. IBD segments shorter than this value\n"
             "                      will be ignored and not written to the output file.\n"
             "\n"
-            "    <treeseq_file>    Tree sequence file that has finished coalescent.\n\n";
+            "    <treeseq_file>    Tree sequence file that has finished coalescent.\n"
+            "\n"
+            "    <out>             Optional: output IBD filename.\n"
+            "                      If unspecified, it will be '{chrno}.ibd'\n"
+            "                      Otherwise, it will be '{out}.ibd'\n\n";
+
         // clang-format on
 
-        if (argc != 6) {
+        if (argc < 5 || argc > 7) {
             cerr << u;
             exit(-1);
         } else {
@@ -195,6 +200,11 @@ class Args
             }
             mincm = strtod(argv[4], NULL);
             treeseq_fn = argv[5];
+            if (argc == 7){
+                out_prefix = argv[6];
+            } else{
+                out_prefix = to_string(chrom);
+            }
         }
         min_length_bp = mincm * bp_per_cm;
         nsam = -1;
@@ -681,10 +691,18 @@ main(int argc, char *argv[])
     // TreeParser::test();
     auto args = Args(argc, argv);
 
+    // mkdir folder if needed
+    namespace fs = std::filesystem;
+    fs::path out_p = args.out_prefix;
+    string outdir = out_p.parent_path().string();
+    if(outdir.size()>0 && (!fs::exists(outdir))){
+        fs::create_directories(outdir);
+    }
+
     // create files
-    ofstream ofs_ibd(to_string(args.chrom) + ".ibd");
-    ofstream ofs_map(to_string(args.chrom) + ".map");
-    ofstream ofs_log(to_string(args.chrom) + ".log");
+    ofstream ofs_ibd(args.out_prefix + ".ibd");
+    ofstream ofs_map(args.out_prefix + ".map");
+    ofstream ofs_log(args.out_prefix + ".log");
     auto writer = FileWriter(ofs_log, ofs_ibd, ofs_map);
     writer.write_args_to_log(args);
 

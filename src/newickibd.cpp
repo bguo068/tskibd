@@ -10,6 +10,8 @@
 #include <string_view>
 #include <tuple>
 #include <vector>
+#include <filesystem>
+
 
 // structure for a tree node
 struct Node {
@@ -117,6 +119,7 @@ class Args {
   double mincm;
   // inferred data
   std::string simulation_command_str;
+  std::string out_prefix;
   long seqlen;
   int nsam;
   long nsegsites;
@@ -128,13 +131,15 @@ class Args {
 
   Args(int argc, char *argv[]) {
     std::string u;
+
+    // clang-format off
     u = "Usage 1: \n"
         "./macs 50 10000 -t 0.0004 -r 0.0004 -h 1000 -T 2>/dev/null \\\n"
-        "  | ./msformatter | newick_tree 1 1000000 40000 10000 0 2.0\n"
+        "  | ./msformatter | newickibd 1 1000000 40000 10000 0 2.0\n"
         "\n"
         "Usage 2: \n"
         "java -Xmx10g -jar ./msms.jar 100 1 -t 4000 -r 4000 10000000 -T \\\n"
-        "  | newick_tree 1 1000000 40000 10000 0 2.0\n"
+        "  | newickibd 1 1000000 40000 10000 0 2.0\n"
         "\n"
         "Positional parameters: \n"
         "1. chromN:                     Chromosome number (int). Use for \n"
@@ -152,9 +157,14 @@ class Args {
         "                               diploid when convert haplotypes into \n"
         "                               vcf.                                  "
         "\n"
-        "6. mincm:                      min length of ibd segment to keep\n\n";
+        "6. mincm:                      min length of ibd segment to keep\n"
+        "\n"
+        "7. [out]                       Optional: output IBD filename.\n"
+        "                               If unspecified, it will be '{chrno}.ibd'\n"
+        "                               Otherwise, it will be '{out}.ibd'\n\n";
+    // clang-format on
 
-    if (argc != 7) {
+    if (argc < 7 || argc > 8 ) {
       std::cerr << u;
       exit(-1);
     } else {
@@ -168,6 +178,12 @@ class Args {
       }
       hom_het = atoi(argv[5]);
       mincm = strtod(argv[6], NULL);
+
+      if (argc == 8){
+          out_prefix = argv[7];
+      } else{
+          out_prefix = std::to_string(chrom);
+      }
     }
     delta = 0.5 / time_scale_factor;
     mincm = 2.0;
@@ -935,11 +951,19 @@ int main(int argc, char *argv[]) {
   // TreeParser::test();
   auto args = Args(argc, argv);
 
+  // mkdir folder if needed
+  namespace fs = std::filesystem;
+  fs::path out_p = args.out_prefix;
+  std::string outdir = out_p.parent_path().string();
+  if((outdir.size()>0)&&(!fs::exists(outdir))){
+      fs::create_directories(outdir);
+  }
+
   // create files
-  std::ofstream ofs_ibd(std::to_string(args.chrom) + ".ibd");
-  std::ofstream ofs_map(std::to_string(args.chrom) + ".map");
-  std::ofstream ofs_log(std::to_string(args.chrom) + ".log");
-  std::ofstream ofs_vcf(std::to_string(args.chrom) + ".vcf");
+  std::ofstream ofs_ibd(args.out_prefix + ".ibd");
+  std::ofstream ofs_map(args.out_prefix + ".map");
+  std::ofstream ofs_log(args.out_prefix + ".log");
+  std::ofstream ofs_vcf(args.out_prefix + ".vcf");
 
   auto reader = MsLikeFileReader(std::cin);
   auto writer = FileWriter(ofs_log, ofs_ibd, ofs_map, ofs_vcf);

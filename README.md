@@ -63,11 +63,18 @@ Positional parameters:
                       will be ignored and not written to the output file.
 
     <treeseq_file>    Tree sequence file that has finished coalescent.
+
+    <out>             Optional: output file prefix.
+                      If unspecified, it will be '{chrno}.ibd'
+                      Otherwise, it will be '{out}.ibd'
 ```
 
 Example running on the **test data**: 
 ```
+# use default output prefix
 build/tskibd 1 15000 150 2  example_data/chr1.trees
+# or use specified output prefix
+build/tskibd 1 15000 150 2  example_data/chr1.trees out/chr1
 ```
 
 ## Input `*.trees` file:
