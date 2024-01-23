@@ -200,9 +200,9 @@ class Args
             }
             mincm = strtod(argv[4], NULL);
             treeseq_fn = argv[5];
-            if (argc == 7){
+            if (argc == 7) {
                 out_prefix = argv[6];
-            } else{
+            } else {
                 out_prefix = to_string(chrom);
             }
         }
@@ -230,6 +230,77 @@ operator<(const IBDSegments &seg1, const IBDSegments &seg2)
     return tie(seg1.id1, seg2.id2, seg1.start, seg1.end)
            < tie(seg2.id1, seg2.id2, seg2.start, seg2.end);
 }
+
+class RecomRateMap
+{
+    vector<uint32_t> bp_vec;
+    vector<double> cm_vec;
+    vector<double> rate_vec;
+
+  public:
+    RecomRateMap(string recomb_rate_map_fname)
+    {
+        ifstream rate_map_fstream(recomb_rate_map_fname);
+
+        string line;
+        while (getline(rate_map_fstream, line)) {
+            istringstream iss(line);
+            uint32_t bp;
+            double cm;
+
+            // read fields
+            if (!(iss >> bp)) {
+                std::cerr << "Error reading bp value" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            if (!(iss >> cm)) {
+                std::cerr << "Error reading cm value" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+
+            if (bp_vec.size() == 0) {
+                // insert (0, 0)
+                if (bp != 0) {
+                    bp_vec.push_back(0);
+                    cm_vec.push_back(0.0);
+                }
+            } else {
+                // check in order
+                if (((*bp_vec.end()) >= bp) || ((*cm_vec.end()) >= cm)) {
+                    std::cerr << "Error in the ordering of rate map file"
+                              << "\n last record is " << *bp_vec.end() << '\n'
+                              << *cm_vec.end() << "\n current record is " << bp << '\n'
+                              << cm << "\n which are not in order!" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            // add to vector
+            bp_vec.push_back(bp);
+            cm_vec.push_back(cm);
+        }
+
+        // calcuate segment rates
+        for (size_t i = 0; i < bp_vec.size() - 1; i++) {
+            double r = (cm_vec[i + 1] - cm_vec[i]) / (bp_vec[i + 1] - bp_vec[i]);
+            rate_vec.push_back(r);
+        }
+        double last_r = (cm_vec.back()) / (bp_vec.back());
+        rate_vec.push_back(last_r);
+    }
+
+    double
+    to_cm(uint32_t bp)
+    {
+        size_t i
+            = distance(bp_vec.begin(), upper_bound(bp_vec.begin(), bp_vec.end(), bp))
+              - 1;
+        cerr << i << '\t' << cm_vec[i] << '\t' << rate_vec[i] << '\t' << bp_vec[i]
+             << '\n';
+        double cm = cm_vec[i] + rate_vec[i] * (bp - bp_vec[i]);
+        return cm;
+    }
+};
 
 class Tsk
 {
@@ -688,6 +759,13 @@ class FileWriter
 int
 main(int argc, char *argv[])
 {
+
+    // RecomRateMap rmap = RecomRateMap(string(argv[1]));
+    // cout << rmap.to_cm(50) << '\n';
+    // cout << rmap.to_cm(100) << '\n';
+    // cout << rmap.to_cm(200) << '\n';
+    // cout << rmap.to_cm(250) << '\n';
+    // return 0;
     // TreeParser::test();
     auto args = Args(argc, argv);
 
@@ -695,7 +773,7 @@ main(int argc, char *argv[])
     namespace fs = std::filesystem;
     fs::path out_p = args.out_prefix;
     string outdir = out_p.parent_path().string();
-    if(outdir.size()>0 && (!fs::exists(outdir))){
+    if (outdir.size() > 0 && (!fs::exists(outdir))) {
         fs::create_directories(outdir);
     }
 
