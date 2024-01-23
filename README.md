@@ -32,7 +32,7 @@ git clone https://github.com/bguo068/tskibd.git
 cd tskibd
 git submodule update --init --recursive # IMPORTANT!
 mv tskit/c/VERSION tskit/c/VERSION.txt # Fix filename issue
-meson build
+meson setup build
 ninja -C build tskibd
 ```
 The compiled executable can be found at `build/tskibd`.
