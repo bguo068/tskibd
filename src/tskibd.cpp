@@ -142,7 +142,6 @@ class Args
     long true_IBD_sampling_window;
     bool hom_het;
     double delta; // tolerance when comparing ibd tmrca with segment tmrca.
-    long min_length_bp;
     double mincm;
     // inferred data
     string treeseq_fn;
@@ -151,9 +150,28 @@ class Args
     long nsegsites;
     int tree_sample_nodes_label_start_num; // macs starts with 0; msms starts
                                            // with 1;
-    vector<long> positions;
     string haplotypes;
+    string recomb_rate_map_path;
     vector<IBDSegments> ibdseg_arr;
+
+    bool
+    is_numeric(const char *str)
+    {
+        if (str == nullptr)
+            return false; // Check for null pointer
+
+        if (*str == '\0')
+            return false; // Check for empty string
+
+        // Check each character
+        while (*str) {
+            if (!std::isdigit(*str)) {
+                return false;
+            }
+            ++str;
+        }
+        return true;
+    }
 
     Args(int argc, char *argv[])
     {
@@ -192,7 +210,14 @@ class Args
             exit(-1);
         } else {
             chrom = atoi(argv[1]);
-            bp_per_cm = strtol(argv[2], NULL, 10);
+            if (is_numeric(argv[2])) {
+                bp_per_cm = strtol(argv[2], NULL, 10);
+                recomb_rate_map_path = string("");
+            } else {
+                recomb_rate_map_path = string(argv[2]);
+                bp_per_cm = -1;
+            }
+
             true_IBD_sampling_window = strtol(argv[3], NULL, 10);
             if (true_IBD_sampling_window == 0) {
                 fprintf(stderr, "true_IBD_sampling_window parameter error!\n");
@@ -206,7 +231,6 @@ class Args
                 out_prefix = to_string(chrom);
             }
         }
-        min_length_bp = mincm * bp_per_cm;
         nsam = -1;
     }
 
@@ -238,6 +262,22 @@ class RecomRateMap
     vector<double> rate_vec;
 
   public:
+    RecomRateMap() = default;
+    RecomRateMap(uint32_t bp, double cm)
+    {
+        if ((bp <= 0) || (cm <= 0)) {
+            std::cerr
+                << "Error value in constructing RecombRateMap from bp and cm values"
+                << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        bp_vec.push_back(0);
+        bp_vec.push_back(bp);
+        cm_vec.push_back(0.0);
+        cm_vec.push_back(cm);
+        rate_vec.push_back(cm / bp);
+        rate_vec.push_back(cm / bp);
+    }
     RecomRateMap(string recomb_rate_map_fname)
     {
         ifstream rate_map_fstream(recomb_rate_map_fname);
@@ -295,8 +335,8 @@ class RecomRateMap
         size_t i
             = distance(bp_vec.begin(), upper_bound(bp_vec.begin(), bp_vec.end(), bp))
               - 1;
-        cerr << i << '\t' << cm_vec[i] << '\t' << rate_vec[i] << '\t' << bp_vec[i]
-             << '\n';
+        // cerr << i << '\t' << cm_vec[i] << '\t' << rate_vec[i] << '\t' << bp_vec[i]
+        //      << '\n';
         double cm = cm_vec[i] + rate_vec[i] * (bp - bp_vec[i]);
         return cm;
     }
@@ -329,10 +369,13 @@ class Tsk
     LowerTriangularMatrix<uint8_t> cur_mut_mat;
     bool tree_contains_mutation;
 
+    vector<uint32_t> breakpoints_bp_vec; // local tree boundaries in bp
+    vector<double> breakpoints_cm_vec;   // local tree boundaries in cm
+
   public:
-    Tsk(string ts_fn)
-        : ibd_start_mat(LowerTriangularMatrix<uint32_t>(1)),
-          ibd_end_mat(LowerTriangularMatrix<uint32_t>(1)),
+    Tsk(string ts_fn, Args &args)
+        : ibd_start_mat(LowerTriangularMatrix<uint32_t>(0)), // save index break points
+          ibd_end_mat(LowerTriangularMatrix<uint32_t>(0)), // save index of break points
           ibd_mrca_mat(LowerTriangularMatrix<tsk_id_t>(1)),
           ibd_mut_mat(LowerTriangularMatrix<uint8_t>(1)),
           cur_mrca_mat(LowerTriangularMatrix<tsk_id_t>(1)),
@@ -352,6 +395,24 @@ class Tsk
 
         tree_counter = 0;
         sampled_tree_counter = 0;
+
+        // get rate map
+        RecomRateMap rmap;
+        if (args.bp_per_cm > 0) {
+            rmap = RecomRateMap(args.bp_per_cm, 1.0);
+        } else {
+            rmap = RecomRateMap(args.recomb_rate_map_path);
+        }
+
+        // record tree boudaries
+        for (size_t idx = 0; idx < ts.num_trees + 1; idx++) {
+            uint32_t bp = ts.breakpoints[idx];
+            double cm = rmap.to_cm(bp);
+            breakpoints_bp_vec.push_back(bp);
+            breakpoints_cm_vec.push_back(cm);
+        }
+        // ts.breakpoints;
+        // ts.num_trees
 
         ibd_start_mat.resize(ts.num_samples);
         ibd_end_mat.resize(ts.num_samples);
@@ -552,8 +613,8 @@ class Tsk
     void
     find_and_update_ibd(Args &args)
     {
-        uint32_t tree_interval_start_bp = lround(tree.interval.left);
-        uint32_t tree_interval_end_bp = lround(tree.interval.right);
+        uint32_t tree_left_breakpoint_idx = tree_counter;
+        uint32_t tree_right_breakpoint_idx = tree_counter + 1;
         size_t num_pairs = ibd_start_mat.get_array_size();
         for (size_t pair = 0; pair < num_pairs; pair++) {
             // use reference to be update
@@ -566,7 +627,11 @@ class Tsk
 
             // ibd continues
             if (ibd_mrca == cur_mrca) {
-                ibd_end = tree_interval_end_bp;
+                // ibd_end = tree_interval_end_cm;
+
+                // now use index
+                ibd_end = tree_right_breakpoint_idx;
+
                 // if seeing mutation, set ibd_mut to true; if not, keep the
                 // same as previous. So ibd_mut will be true if it see at least
                 // one mutation across marginal trees until it breaks
@@ -578,27 +643,30 @@ class Tsk
             // ibd breaks
             else {
                 // if the ibd segments is long enough output ibd
-                if (tree_interval_start_bp - ibd_start > args.min_length_bp) {
+                if (breakpoints_cm_vec[tree_left_breakpoint_idx]
+                        - breakpoints_cm_vec[ibd_start]
+                    > args.mincm) {
                     IBDSegments seg;
                     // find id1 and id2 using matrix index
                     ibd_mrca_mat.get_matrix_index(pair, seg.id1, seg.id2);
-                    seg.start = ibd_start;
+                    seg.start = breakpoints_bp_vec[ibd_start];
                     /*
                     need to use cur tree left as the seg end. Otherwise, AS-IBD coords
                     never to touch each other as we skip trees using the sampling
                     windows.
                     */
                     // seg.end = ibd_end;
-                    seg.end = tree_interval_start_bp;
+                    seg.end = breakpoints_bp_vec[tree_left_breakpoint_idx];
                     seg.mrca = ibd_mrca;
                     seg.tmrca = tables.nodes.time[ibd_mrca];
                     seg.mut = ibd_mut;
                     args.ibdseg_arr.push_back(seg);
                 }
                 // update ibd matrix elements
-                ibd_start = tree_interval_start_bp; // should start from cur interval
-                                                    // start instead of cur interval end
-                ibd_end = tree_interval_end_bp;
+                ibd_start
+                    = tree_left_breakpoint_idx; // should start from cur interval
+                                                // start instead of cur interval end
+                ibd_end = tree_right_breakpoint_idx;
                 ibd_mrca = cur_mrca;
                 ibd_mut = cur_mut; // reset mutation status
             }
@@ -618,12 +686,13 @@ class Tsk
             auto &ibd_start = ibd_start_mat.at(pair);
             auto &ibd_mut = ibd_mut_mat.at(pair);
             // if the ibd segments is long enough output ibd
-            if (ibd_end - ibd_start > args.min_length_bp) {
+            if (breakpoints_cm_vec[ibd_end] - breakpoints_cm_vec[ibd_start]
+                > args.mincm) {
                 IBDSegments seg;
                 // find id1 and id2 using matrix index
                 ibd_mrca_mat.get_matrix_index(pair, seg.id1, seg.id2);
-                seg.start = ibd_start;
-                seg.end = ibd_end;
+                seg.start = breakpoints_bp_vec[ibd_start];
+                seg.end = breakpoints_bp_vec[ibd_end];
                 seg.mrca = ibd_mrca;
                 seg.tmrca = tables.nodes.time[ibd_mrca];
                 seg.mut = ibd_mut;
@@ -784,7 +853,7 @@ main(int argc, char *argv[])
     auto writer = FileWriter(ofs_log, ofs_ibd, ofs_map);
     writer.write_args_to_log(args);
 
-    Tsk tsk(args.treeseq_fn.c_str());
+    Tsk tsk(args.treeseq_fn.c_str(), args);
     while (tsk.iter_tree()) {
         if (tsk.is_multiple_in_tree_interval(args.true_IBD_sampling_window)
             || tsk.do_tree_contains_mutation()) {
