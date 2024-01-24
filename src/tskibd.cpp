@@ -348,7 +348,7 @@ class Tsk
     tsk_tree_t tree;
     tsk_table_collection_t tables;
     int tree_iter;
-    uint32_t tree_counter;
+    long tree_counter;
     uint32_t sampled_tree_counter;
     vector<tsk_id_t> stack;
     vector<tsk_id_t> leaves1;
@@ -393,7 +393,7 @@ class Tsk
 
         ret = tsk_tree_init(&tree, &ts, 0);
 
-        tree_counter = 0;
+        tree_counter = -1; // -1 indicate tsk_tree_first  not called yet
         sampled_tree_counter = 0;
 
         // get rate map
@@ -429,7 +429,7 @@ class Tsk
     int
     iter_tree()
     {
-        if (tree_counter == 0) {
+        if (tree_counter == -1) {
             tree_iter = tsk_tree_first(&tree);
             tsk_check_error(tree_iter, __LINE__);
         } else {
