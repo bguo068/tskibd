@@ -42,15 +42,27 @@ The compiled executable can be found at `build/tskibd`.
 ## Usage
 
 ```
-Usage: tskibd <chromN> <bp_per_cm> <sampling_window> <mincm> <treeseq_file>
+Usage: tskibd <chromN> <<bp_per_cm/recombination_rate_map_path>> <sampling_window> <mincm> <treeseq_file> [<out>]
 
 Positional parameters:
 
     <chr_no>          Chromosome number (integer). This parameter is used for
                       naming the output files, such as 1.ibd and 1.map.
 
-    <bp_per_cm>       Base pairs per centimorgan. For example, use 1000000 for
-                      human or 15000 for p.f. (P. falciparum).
+    <bp_per_cm/recombination_rate_map_path>
+                      This positional argument can be used in two ways:
+                      (1) if it is a numeric type, it will be interpreted as the 
+                          base pairs per centimorgan.
+                          For example, use '1000000' for human or 
+                         '15000' for p.f. (P. falciparum).
+                      (2) If it is a string, it will be interpreted as the path
+                      to a recombination rate map file. This file is a
+                      space/tab-delimited two-column table without a header. The
+                      first column contains integers indicating the coordinates
+                      in base-pair, and the second column contains float numbers
+                      indicating the coordinates in centimorgan.  For positions
+                      that is not explicited included, we use linear 
+                      interpolation/extrapolation for bp to cm mapping.
 
     <sampling_window> Sampling window size in base pairs. Use '1' to check all
                       trees or '1000' to check trees covering positions of 0,
@@ -64,7 +76,7 @@ Positional parameters:
 
     <treeseq_file>    Tree sequence file that has finished coalescent.
 
-    <out>             Optional: output file prefix.
+    <out>             Optional: output IBD filename.
                       If unspecified, it will be '{chrno}.ibd'
                       Otherwise, it will be '{out}.ibd'
 ```
@@ -75,6 +87,12 @@ Example running on the **test data**:
 build/tskibd 1 15000 150 2  example_data/chr1.trees
 # or use specified output prefix
 build/tskibd 1 15000 150 2  example_data/chr1.trees out/chr1
+
+# from version 0.0.2, we allow specifying recombination rate map
+# instead of a constant recombination rate
+echo "750000 50.0" > rate_map.txt
+echo "1500000 100.0" >> rate_map.txt
+build/tskibd 1 rate_map.txt 150 2  example_data/chr1.trees out/chr1
 ```
 
 ## Input `*.trees` file:
