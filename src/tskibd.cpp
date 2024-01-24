@@ -177,15 +177,27 @@ class Args
     {
         string u;
         // clang-format off
-        u = "Usage: tskibd <chromN> <bp_per_cm> <sampling_window> <mincm> <treeseq_file> [<out>]\n"
+        u = "Usage: tskibd <chromN> <<bp_per_cm/recombination_rate_map_path>> <sampling_window> <mincm> <treeseq_file> [<out>]\n"
             "\n"
             "Positional parameters:\n"
             "\n"
             "    <chr_no>          Chromosome number (integer). This parameter is used for\n"
             "                      naming the output files, such as 1.ibd and 1.map.\n"
             "\n"
-            "    <bp_per_cm>       Base pairs per centimorgan. For example, use 1000000 for\n"
-            "                      human or 15000 for p.f. (P. falciparum).\n"
+            "    <bp_per_cm/recombination_rate_map_path>\n"
+            "                      This positional argument can be used in two ways:\n"
+            "                      (1) if it is a numeric type, it will be interpreted as the \n"
+            "                          base pairs per centimorgan.\n"
+            "                          For example, use '1000000' for human or \n"
+            "                         '15000' for p.f. (P. falciparum).\n"
+            "                      (2) If it is a string, it will be interpreted as the path\n"
+            "                      to a recombination rate map file. This file is a\n"
+            "                      space/tab-delimited two-column table without a header. The\n"
+            "                      first column contains integers indicating the coordinates\n"
+            "                      in base-pair, and the second column contains float numbers\n"
+            "                      indicating the coordinates in centimorgan.  For positions\n"
+            "                      that is not explicited included, we use linear \n"
+            "                      interpolation/extrapolation for bp to cm mapping.\n"
             "\n"
             "    <sampling_window> Sampling window size in base pairs. Use '1' to check all\n"
             "                      trees or '1000' to check trees covering positions of 0,\n"
@@ -201,7 +213,7 @@ class Args
             "\n"
             "    <out>             Optional: output IBD filename.\n"
             "                      If unspecified, it will be '{chrno}.ibd'\n"
-            "                      Otherwise, it will be '{out}.ibd'\n\n";
+            "                      Otherwise, it will be '{out}.ibd'\n";
 
         // clang-format on
 
@@ -306,7 +318,7 @@ class RecomRateMap
                 }
             } else {
                 // check in order
-                if (((*bp_vec.end()) >= bp) || ((*cm_vec.end()) >= cm)) {
+                if ((bp_vec.back() >= bp) || (cm_vec.back() >= cm)) {
                     std::cerr << "Error in the ordering of rate map file"
                               << "\n last record is " << *bp_vec.end() << '\n'
                               << *cm_vec.end() << "\n current record is " << bp << '\n'
@@ -829,13 +841,6 @@ int
 main(int argc, char *argv[])
 {
 
-    // RecomRateMap rmap = RecomRateMap(string(argv[1]));
-    // cout << rmap.to_cm(50) << '\n';
-    // cout << rmap.to_cm(100) << '\n';
-    // cout << rmap.to_cm(200) << '\n';
-    // cout << rmap.to_cm(250) << '\n';
-    // return 0;
-    // TreeParser::test();
     auto args = Args(argc, argv);
 
     // mkdir folder if needed
