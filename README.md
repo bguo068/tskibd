@@ -124,4 +124,4 @@ or keep only those for sites under selection (selected mutation).
 
 # Citation:
 
-If you find this tool useful, please cite our preprint https://doi.org/10.1101/2023.07.14.549114
+If you find this tool useful, please cite our paper: https://www.nature.com/articles/s41467-024-46659-0
