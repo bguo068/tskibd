@@ -461,6 +461,9 @@ class Tsk
     bool
     is_multiple_in_tree_interval(uint32_t sampling_window_bp)
     {
+        if (sampling_window_bp == 1){
+            return true;
+        }
         uint32_t left = lround(tree.interval.left);
         uint32_t right = lround(tree.interval.right);
         uint32_t multiple = right / sampling_window_bp * sampling_window_bp;
