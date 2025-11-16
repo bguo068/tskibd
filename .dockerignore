@@ -1,0 +1,24 @@
+# Build artifacts
+build/
+*.o
+*.a
+
+# Git (but keep for submodules if building locally)
+# .git/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Output files
+*.ibd
+*.map
+out/
+output/

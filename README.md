@@ -1,7 +1,10 @@
 # `tskibd`
 
-`tskibd` is a tool designed to calculate Identity by Descent (IBD) segments from genealogical trees represented in the [tree sequence](https://tskit.dev/tutorials/what_is.html#sec-what-is) format. 
-It leverages the tskit C API library, which you can find at [tskit](https://github.com/tskit-dev/tskit) repository.
+`tskibd` is a tool designed to calculate Identity by Descent
+(IBD) segments from genealogical trees represented in the [tree
+sequence](https://tskit.dev/tutorials/what_is.html#sec-what-is)
+format.  It leverages the tskit C API library, which you can find at
+[tskit](https://github.com/tskit-dev/tskit) repository.
 
 
 ## System requirements
@@ -13,7 +16,8 @@ minute.
 
 ## Conda environment for compilation
 
-If you don't have `Conda` installed on your system, you can easily install it from [here](https://docs.conda.io/en/latest/miniconda.html).
+If you don't have `Conda` installed on your system, you can easily install it
+from [here](https://docs.conda.io/en/latest/miniconda.html).
 
 Once `Conda` is installed, create the `tskit` environment using the recipe
 provided in `env.yml` by running:
@@ -37,7 +41,44 @@ ninja -C build tskibd
 ```
 The compiled executable can be found at `build/tskibd`.
 
+## Docker Image
 
+You can skip compilation by directly using the pre-built image available on
+[Docker Hub](https://hub.docker.com/r/bguo068/tskibd).
+
+### Usage
+
+**Pull the image:**
+
+```bash
+docker pull bguo068/tskibd:v0.0.2
+```
+
+**Run without arguments (shows help message):**
+
+```bash
+docker run --rm bguo068/tskibd:v0.0.2
+```
+
+**Run on local data:**
+To allow the container to access your files, mount your current directory
+(`$PWD`) to the container volume:
+
+```bash
+docker run --rm -v $PWD:/data bguo068/tskibd:v0.0.2 1 15000 150 2 example_data/chr1.trees
+```
+
+### Apptainer (Singularity)
+
+You can also use Apptainer to build a `.sif` image directly from Docker (tested on Linux/amd64).
+
+```bash
+# Build the image
+apptainer build ./tskibd.sif docker://bguo068/tskibd:v0.0.2
+
+# Run the image
+apptainer run ./tskibd.sif 1 15000 150 2 example_data/chr1.trees
+```
 
 ## Usage
 
